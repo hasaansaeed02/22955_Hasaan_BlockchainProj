@@ -14,6 +14,11 @@ contract DecentralizedAuction {
 
     uint public bidIncrement;
 
+    uint public constant min_bidlength = 3;
+    uint public constant min_fintime = 120;
+
+    uint public biddercount;
+
     constructor(uint _startBlock, uint _endBlock, uint _bidIncrement) {
         require(_startBlock < _endBlock, "Invalid endBlock");
         require(_bidIncrement > 0, "Bid increment must be greater than zero");
@@ -44,12 +49,20 @@ contract DecentralizedAuction {
         _;
     }
 
+    modifier canFinalize() {
+        require(biddercount >= min_bidlength, "Can finalize when atleast 3 bidders bid");
+        require(block.timestamp > endBlock + min_fintime, "Can finalize when atleast 2 minutes passed");
+        _;
+    }
+
+
     function placeBid() external payable onlyBeforeEnd onlyNotOwner {
         require(msg.value > bids[msg.sender] + bidIncrement, "Bid must be greater than the previous highest bid plus the bid increment");
 
         if (bids[msg.sender] == 0) {
             // If this is the first bid from the bidder, add them to the bidders array
             bidders.push(msg.sender);
+            biddercount++; // Increment bidder count
         }
 
         if (bids[msg.sender] > 0) {
@@ -65,7 +78,7 @@ contract DecentralizedAuction {
         }
     }
 
-    function finalizeAuction() external onlyOwner onlyAfterEnd {
+    function finalizeAuction() external onlyOwner onlyAfterEnd canFinalize {
         require(highestBidder != address(0), "Auction has no winner");
 
         // Transfer the funds to the owner
